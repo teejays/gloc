@@ -12,7 +12,10 @@ import (
 )
 
 type Args struct {
-	dirPath string
+	rootPath        string
+	excludeDirs     string
+	excludeFiles    string
+	ignoreTestFiles bool
 }
 
 func main() {
@@ -24,17 +27,26 @@ func main() {
 }
 
 func run() error {
-	// Args
+	// Parse Args
 	var args Args
-	flag.StringVar(&args.dirPath, "dir", "", "path of the directory to analyze")
+	flag.StringVar(&args.rootPath, "root", "", "path of the directory to analyze")
+	flag.BoolVar(&args.ignoreTestFiles, "ignore-test-files", true, "should be ignore test files (default to true)")
+	flag.StringVar(&args.excludeDirs, "exclude-dirs", "", "directories to be excluded (comma separated)")
+	flag.StringVar(&args.excludeFiles, "exclude-files", "", "files to be excluded (comma separated)")
 	flag.Parse()
 
-	args.dirPath = strings.TrimSpace(args.dirPath)
-	if args.dirPath == "" {
+	args.rootPath = strings.TrimSpace(args.rootPath)
+	if args.rootPath == "" {
 		return fmt.Errorf("directory is empty")
 	}
 
-	r, err := processDir(args.dirPath)
+	// Process the root project directory
+	config := fileConfig{
+		ignoreTestFiles: args.ignoreTestFiles,
+		excludeDirs:     strings.Split(args.excludeDirs, ","),
+		excludeFiles:    strings.Split(args.excludeFiles, ","),
+	}
+	r, err := processDir(args.rootPath, config)
 	if err != nil {
 		return err
 	}
@@ -45,16 +57,19 @@ func run() error {
 
 }
 
-type Results struct {
-	LinesOfCode         int
-	LinesOfErrCheck     int
-	LinesOfComments     int
-	LinesWhitespace     int
-	TotalLinesProcessed int
+type fileConfig struct {
+	excludeDirs     []string
+	excludeFiles    []string
+	ignoreTestFiles bool
 }
 
-func processDir(dirPath string) (Results, error) {
+func processDir(dirPath string, config fileConfig) (Results, error) {
 	var results Results
+
+	// Excluded dirs
+	if sliceContainsString(config.excludeDirs, dirPath) {
+		return results, nil
+	}
 
 	// Open the directory
 	clog.Debugf("Opening Dir: %s", dirPath)
@@ -63,6 +78,7 @@ func processDir(dirPath string) (Results, error) {
 		return results, err
 	}
 
+	// Find whether the file is a dir or not.
 	dInfo, err := dir.Stat()
 	if err != nil {
 		return results, err
@@ -79,10 +95,10 @@ func processDir(dirPath string) (Results, error) {
 	}
 
 	for _, subFile := range subFiles {
-		subFilePath := joinPath(dirPath, subFile.Name())
+
 		// If Dir
 		if subFile.IsDir() {
-			r, err := processDir(subFilePath)
+			r, err := processDir(joinPath(dirPath, subFile.Name()), config)
 			if err != nil {
 				return results, err
 			}
@@ -90,7 +106,7 @@ func processDir(dirPath string) (Results, error) {
 		}
 
 		// If file
-		r, err := processFile(subFilePath)
+		r, err := processFile(dirPath, subFile.Name(), config)
 		if err != nil {
 			return results, err
 		}
@@ -103,21 +119,28 @@ func processDir(dirPath string) (Results, error) {
 
 }
 
-func processFile(filePath string) (Results, error) {
+func processFile(dirPath, fileName string, config fileConfig) (Results, error) {
 	var r Results
 
+	// Open file
+	filePath := joinPath(dirPath, fileName)
+	clog.Debugf("Opening File: %s", filePath)
+
 	// Ignore non-Go files
-	if len(filePath) < 3 || filePath[len(filePath)-3:] != ".go" {
+	if len(fileName) < 3 || fileName[len(fileName)-3:] != ".go" {
 		return r, nil
 	}
 
 	// Ignore test files
-	if len(filePath) > 8 && filePath[len(filePath)-8:] == "_test.go" {
+	if config.ignoreTestFiles && len(fileName) > 8 && fileName[len(fileName)-8:] == "_test.go" {
 		return r, nil
 	}
 
-	// Open file
-	clog.Debugf("Opening File: %s", filePath)
+	// Excluded files
+	if sliceContainsString(config.excludeFiles, filePath) {
+		return r, nil
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return r, err
@@ -132,11 +155,21 @@ func processFile(filePath string) (Results, error) {
 		return r, fmt.Errorf("file %s is a dir", filePath)
 	}
 
+	r.NumOfFiles++
+	r.MaxCurlyBracesDepthLocation.File = filePath
+
 	// Read file
 	buffReader := bufio.NewReader(file)
 
+	// Scope level (count number of '{' that we are in)
+	var errCheckDepth int
+	var curlyBracesDepth int
+
+	// type BraceType string
+	// var curlyBracesStack = NewStack()
+
 	var lineNum int
-	var inErrCheck bool
+
 	for {
 		lineNum++
 		clog.Debugf("Processing Line: %d", lineNum)
@@ -154,22 +187,70 @@ func processFile(filePath string) (Results, error) {
 
 		text = strings.TrimSpace(text)
 
-		// Comment
+		// Line is empty
 		if text == "" {
 			r.LinesWhitespace++
+			continue
 
-		} else if len(text) >= 2 && text[:2] == "//" {
+		}
+
+		// Line is only a comment (starts with '//')
+		if len(text) >= 2 && text[:2] == "//" {
 			r.LinesOfComments++
+			continue
 
-		} else if !inErrCheck && strings.Contains(text, "if err != nil") || strings.Contains(text, "Err != nil") {
-			inErrCheck = true
+		}
+
+		// Loop through the chars in the line
+		var hasComment bool
+		for i, c := range text {
+
+			if c == '{' {
+				curlyBracesDepth++
+			}
+			if c == '}' {
+				curlyBracesDepth--
+			}
+
+			if c == '/' && len(text) > i+1 && text[i+1] == '/' {
+				text = text[:i] // this is the line text without the comment part
+				hasComment = true
+				break // no need to process comments
+			}
+		}
+
+		if hasComment {
+			r.NumInlineComments++
+		}
+
+		if curlyBracesDepth > r.MaxCurlyBracesDepth {
+			r.MaxCurlyBracesDepth = curlyBracesDepth
+			r.MaxCurlyBracesDepthLocation.Line = lineNum
+		}
+
+		var isErrCheckLine bool
+
+		// We're starting an err check
+		if strings.Contains(text, "if err != nil") || strings.Contains(text, "Err != nil") {
+			isErrCheckLine = true
+			errCheckDepth++
+		}
+
+		if errCheckDepth > 0 && text != "}" {
+			isErrCheckLine = true
+		}
+
+		// Closing an error check
+		if errCheckDepth > 0 && text == "}" {
+			isErrCheckLine = true
+			errCheckDepth--
+		}
+
+		if isErrCheckLine {
 			r.LinesOfErrCheck++
+		}
 
-		} else if inErrCheck && text == "}" {
-			r.LinesOfErrCheck++
-			inErrCheck = false
-
-		} else {
+		if !isErrCheckLine {
 			r.LinesOfCode++
 		}
 
@@ -184,17 +265,29 @@ func processFile(filePath string) (Results, error) {
 	return r, nil
 }
 
-func addResults(a, b Results) Results {
-	var r Results
-	r.LinesOfCode = a.LinesOfCode + b.LinesOfCode
-	r.LinesOfComments = a.LinesOfComments + b.LinesOfComments
-	r.LinesOfErrCheck = a.LinesOfErrCheck + b.LinesOfErrCheck
-	r.LinesWhitespace = a.LinesWhitespace + b.LinesWhitespace
-	r.TotalLinesProcessed = a.TotalLinesProcessed + b.TotalLinesProcessed
-
-	return r
-}
-
 func joinPath(parts ...string) string {
 	return strings.Join(parts, string(os.PathSeparator))
+}
+
+func sliceContainsString(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func maxInt(arr ...int) int {
+	if len(arr) < 1 {
+		panic("maxInt called with no ints")
+	}
+
+	var max = arr[0]
+	for _, n := range arr {
+		if n > max {
+			max = n
+		}
+	}
+	return max
 }
