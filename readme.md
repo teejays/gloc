@@ -3,7 +3,7 @@ Go Lines of Code (GLOC) is a simple executable tool that runs basic code analysi
 
 ### Why did I write this?
 
-I once did a small take-home assignment for which I ended up spending more time and writing more code than I had planned. In the end, I wanted to some kind of analysis around if I have written too much (or too less) code. 
+I once did a small take-home assignment for which I ended up spending more time and writing more code than I had planned. In the end, I wanted to do some kind of an analysis to figure out if I have written too much (or too less) code. 
 
 There are tools out there that measure lines of codes in programs but I couldn't find any that was Go specific. As we know, _n_ lines of code in Go don't necessarily correspond to the same amount of code as _n_ lines of let's say Java. This is because of the idiomatic error checking in Go that takes a few lines after most function calls, and because of test files that are part of the same package. 
 
