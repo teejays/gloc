@@ -5,7 +5,7 @@ BIN_PATH=./bin
 
 build:
 	mkdir -p $(BIN_PATH)
-	go build -o $(BIN_PATH)/$(NAME) main.go result.go stack.go
+	go build -o $(BIN_PATH)/$(NAME) main.go result.go file.go line.go
 
 clean:
 	rm $(BIN_PATH)/*

@@ -1,15 +1,13 @@
 package main
 
 type Results struct {
-	NumOfFiles          int
-	LinesOfCode         int
-	LinesOfErrCheck     int
-	LinesOfComments     int
-	LinesWhitespace     int
-	TotalLinesProcessed int
-
-	NumInlineComments int
-
+	NumOfFiles                  int
+	LinesOfCode                 int
+	LinesOfErrCheck             int
+	LinesOfComments             int
+	LinesWhitespace             int
+	TotalLinesProcessed         int
+	NumInlineComments           int
 	MaxCurlyBracesDepth         int
 	MaxCurlyBracesDepthLocation Location
 }
