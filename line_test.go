@@ -115,8 +115,13 @@ func TestProcessLine(t *testing.T) {
 			},
 		},
 		{
-			name: "ignore stuff in strings",
+			name: "ignore stuff in double quote strings",
 			text: `var a = "if err = nil { /*...//"`,
+			want: LineResult{},
+		},
+		{
+			name: "ignore stuff in single quote strings",
+			text: `var a = ' but \'if err = nil { /*...//'`,
 			want: LineResult{},
 		},
 		{
