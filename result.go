@@ -1,5 +1,6 @@
 package main
 
+// Results is the final and intermediary response after processing a unit of code
 type Results struct {
 	NumOfFiles                  int
 	LinesOfCode                 int
@@ -12,6 +13,7 @@ type Results struct {
 	MaxCurlyBracesDepthLocation Location
 }
 
+// Location represents the location of a certain event in code
 type Location struct {
 	File string
 	Line int

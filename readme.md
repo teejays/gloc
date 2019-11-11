@@ -1,3 +1,4 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/teejays/gloc)](https://goreportcard.com/report/github.com/teejays/gloc)
 # GLOC
 Go Lines of Code (GLOC) is a simple executable tool that runs basic code analysis on a Go project. 
 
@@ -45,16 +46,16 @@ Once verified that Gloc is installed, run it like this:
 
 ```
 {
-    NumOfFiles:10 
-    LinesOfCode:1048
+    NumOfFiles:10
+    LinesOfCode:1066
     LinesOfErrCheck:118
-    LinesOfComments:188
+    LinesOfComments:209
     LinesWhitespace:320
-    TotalLinesProcessed:1166
+    TotalLinesProcessed:1674
     NumInlineComments:18
     MaxCurlyBracesDepth:5
     MaxCurlyBracesDepthLocation: {
-        File:../logdog/main.go 
+        File:../sample/main.go
         Line:191
     }
 }

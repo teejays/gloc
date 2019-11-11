@@ -90,7 +90,6 @@ func processBufReader(reader *bufio.Reader) (Results, error) {
 
 		lineNum++
 
-		var isLastLine bool
 		// Read the next/first line
 		text, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
@@ -98,7 +97,6 @@ func processBufReader(reader *bufio.Reader) (Results, error) {
 		}
 		// End of stream
 		if err == io.EOF {
-			isLastLine = true
 			break
 		}
 
@@ -170,10 +168,6 @@ func processBufReader(reader *bufio.Reader) (Results, error) {
 
 		if errCheckPoint == 0 {
 			r.LinesOfCode++
-		}
-
-		if isLastLine {
-			break
 		}
 
 	}

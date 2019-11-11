@@ -95,4 +95,5 @@ func ReadConfigTOML(path string) (Config, error) {
 	}
 
 	return cfg, nil
-}`
+}
+`

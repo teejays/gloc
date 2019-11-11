@@ -4,6 +4,7 @@ import (
 	"strings"
 )
 
+// LineResult represents the response of processing a single line
 type LineResult struct {
 	IsWhitespace    bool
 	IsOnlyComment   bool
@@ -21,6 +22,7 @@ type LineResult struct {
 	EndsBacktickBlock  bool
 }
 
+// LineContext is the context that is passed to the line processor so it can process the line correctly
 type LineContext struct {
 	InBlockComment   bool
 	InBacktickString bool

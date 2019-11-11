@@ -9,6 +9,7 @@ import (
 	"github.com/teejays/clog"
 )
 
+// Args can be passed as the command line arguments, and control the program
 type Args struct {
 	rootPath        string
 	excludeDirs     string
