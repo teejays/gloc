@@ -46,3 +46,64 @@ func TestProcessBufReader(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldIncludeFile(t *testing.T) {
+	type args struct {
+		dirPath  string
+		fileName string
+		config   fileConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "exclude non-go files",
+			args: args{
+				fileName: "Main.java",
+			},
+			want: false,
+		},
+		{
+			name: "exclude other files",
+			args: args{
+				fileName: "README.md",
+			},
+			want: false,
+		},
+		{
+			name: "exclude go test files is config says so",
+			args: args{
+				fileName: "main_test.go",
+				config:   fileConfig{ignoreTestFiles: true},
+			},
+			want: false,
+		},
+		{
+			name: "include go test files is config says so",
+			args: args{
+				fileName: "main_test.go",
+				config:   fileConfig{ignoreTestFiles: false},
+			},
+			want: true,
+		},
+		{
+			name: "exclude a go file is config says so",
+			args: args{
+				fileName: "main.go",
+				dirPath:  ".",
+				config: fileConfig{
+					excludeFiles: []string{"./main.go"},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldIncludeFile(tt.args.dirPath, tt.args.fileName, tt.args.config)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

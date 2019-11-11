@@ -11,23 +11,12 @@ func processFile(dirPath, fileName string, config fileConfig) (Results, error) {
 
 	var r Results
 
+	if !shouldIncludeFile(dirPath, fileName, config) {
+		return r, nil
+	}
+
 	// Construct file path
 	filePath := joinPath(dirPath, fileName)
-
-	// Ignore non-Go files
-	if len(fileName) < 3 || fileName[len(fileName)-3:] != ".go" {
-		return r, nil
-	}
-
-	// Ignore test files
-	if config.ignoreTestFiles && len(fileName) > 8 && fileName[len(fileName)-8:] == "_test.go" {
-		return r, nil
-	}
-
-	// Excluded files
-	if sliceContainsString(config.excludeFiles, filePath) {
-		return r, nil
-	}
 
 	// Open File
 	file, err := os.Open(filePath)
@@ -35,7 +24,19 @@ func processFile(dirPath, fileName string, config fileConfig) (Results, error) {
 		return r, err
 	}
 
-	r, err = processFileReader(file)
+	// Get Buf.Reader
+	bufReader, err := getBufReader(file)
+	if err != nil {
+		return r, err
+	}
+
+	r, err = processBufReader(bufReader)
+	if err != nil {
+		return r, fmt.Errorf("file %s: %s", file.Name(), err)
+	}
+
+	// Close the file
+	err = file.Close()
 	if err != nil {
 		return r, err
 	}
@@ -45,32 +46,40 @@ func processFile(dirPath, fileName string, config fileConfig) (Results, error) {
 	return r, nil
 }
 
-func processFileReader(file *os.File) (Results, error) {
-	var r Results
+func shouldIncludeFile(dirPath, fileName string, config fileConfig) bool {
+	// Ignore non-Go files
+	if len(fileName) < 3 || fileName[len(fileName)-3:] != ".go" {
+		return false
+	}
 
+	// Ignore test files
+	if config.ignoreTestFiles && len(fileName) > 8 && fileName[len(fileName)-8:] == "_test.go" {
+		return false
+	}
+
+	// Excluded files
+	filePath := joinPath(dirPath, fileName)
+	if sliceContainsString(config.excludeFiles, filePath) {
+		return false
+	}
+
+	return true
+}
+
+func getBufReader(file *os.File) (*bufio.Reader, error) {
 	stat, err := file.Stat()
 	if err != nil {
-		return r, err
+		return nil, err
 	}
 
 	if stat.IsDir() {
-		return r, fmt.Errorf("file %s: is a dir", file.Name())
+		return nil, fmt.Errorf("file %s: is a dir", file.Name())
 	}
 
 	// Read file
 	buffReader := bufio.NewReader(file)
 
-	r, err = processBufReader(buffReader)
-	if err != nil {
-		return r, fmt.Errorf("file %s: %s", file.Name(), err)
-	}
-
-	err = file.Close()
-	if err != nil {
-		return r, err
-	}
-
-	return r, nil
+	return buffReader, nil
 
 }
 
